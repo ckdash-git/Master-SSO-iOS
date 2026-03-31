@@ -64,11 +64,16 @@ final class AuthManager: NSObject, ObservableObject {
     // MARK: - Public API
 
     /// Starts the federated sign-in flow via ASWebAuthenticationSession.
+    /// Safe to call from a SwiftUI button; guards against concurrent invocations.
     func signIn() async {
-        guard case .authenticating = authState else {
-            logger.info("Auth flow started")
-            authState = .authenticating
+        // Prevent duplicate concurrent auth flows.
+        guard authState != .authenticating else {
+            logger.warning("Sign-in already in progress — ignoring duplicate call")
+            return
         }
+        logger.info("Auth flow started")
+        authState = .authenticating
+
         do {
             let pkce        = try PKCEHelper.generate()
             let authURL     = try buildAuthorizationURL(pkce: pkce)
@@ -78,6 +83,10 @@ final class AuthManager: NSObject, ObservableObject {
             try TokenManager.shared.save(token: token)
             authState = .authenticated(token)
             logger.info("Auth flow completed — user signed in")
+        } catch AuthError.userCancelled {
+            // Cancellation is a normal user action, not an error.
+            logger.info("Sign-in cancelled by user — returning to unauthenticated state")
+            authState = .unauthenticated
         } catch let error as AuthError {
             let description = error.errorDescription ?? error.localizedDescription
             logger.error("Auth flow failed: \(description)")
@@ -86,6 +95,15 @@ final class AuthManager: NSObject, ObservableObject {
             logger.error("Auth flow unexpected error: \(error.localizedDescription)")
             authState = .failed(error.localizedDescription)
         }
+    }
+
+    /// Cancels an in-progress ASWebAuthenticationSession programmatically.
+    func cancelSignIn() {
+        guard case .authenticating = authState else { return }
+        activeSession?.cancel()
+        activeSession = nil
+        authState = .unauthenticated
+        logger.info("Sign-in cancelled programmatically")
     }
 
     /// Clears the local session. Optionally initiates IdP front-channel logout.
