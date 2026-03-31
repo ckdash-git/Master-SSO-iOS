@@ -15,10 +15,10 @@ enum AppConfig {
     // Obtain these from your Azure AD App Registration (or custom IdP admin console).
 
     /// Azure AD Application (client) ID registered for this app.
-    static let clientId: String = "YOUR_AZURE_APP_CLIENT_ID"
+    static let clientId: String = "3f36b455-044c-4632-925a-2d8a987c6d85"
 
     /// Azure AD tenant ID, or "common" / "organizations" for multi-tenant.
-    static let tenantId: String = "YOUR_TENANT_ID_OR_common"
+    static let tenantId: String = "50a45856-b465-422f-b6da-bf1ce70c4952"
 
     // MARK: - Redirect URI
     // Must match exactly what is registered in your App Registration's
