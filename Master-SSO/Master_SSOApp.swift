@@ -6,6 +6,7 @@
 //  every view in the hierarchy can observe authentication state changes.
 //
 
+import MSAL
 import SwiftUI
 import os
 
@@ -21,6 +22,10 @@ struct Master_SSOApp: App {
                 .task {
                     AppLogger.general.info("Master-SSO application launched")
                     AppLauncher.shared.logInstallStatus()
+                }
+                .onOpenURL { url in
+                    // Forward broker callbacks (Microsoft Authenticator ↔ MSAL).
+                    MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: nil)
                 }
         }
     }

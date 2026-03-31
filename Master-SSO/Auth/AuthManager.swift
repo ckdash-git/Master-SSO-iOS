@@ -2,28 +2,34 @@
 //  AuthManager.swift
 //  Master-SSO
 //
-//  Orchestrates the full PKCE + ASWebAuthenticationSession login flow.
+//  Authenticates via MSAL (Microsoft Authentication Library) with broker support.
 //
-//  Flow:
-//    1. Build Microsoft authorization URL with PKCE challenge.
-//    2. Open ASWebAuthenticationSession (system browser — shares Safari cookies).
-//    3. Receive redirect to master-sso://auth/callback?code=...
-//    4. Exchange the code + PKCE verifier for tokens at the token endpoint.
-//    5. Persist tokens in Keychain via TokenManager.
+//  Broker flow (when Microsoft Authenticator is installed):
+//    1. MSAL detects Authenticator and delegates authentication to it.
+//    2. Authenticator performs the federated login (Microsoft → custom IdP).
+//    3. The resulting tokens are stored in the shared MSAL broker cache.
+//    4. Teams and Outlook (also MSAL-based) find the token silently — no re-login.
 //
-//  prefersEphemeralWebBrowserSession is intentionally set to FALSE so that
-//  the system browser session (and its cookies) is shared with Safari,
-//  enabling best-effort SSO when the user later opens Teams or Outlook.
+//  Non-broker fallback (Authenticator not installed):
+//    MSAL opens ASWebAuthenticationSession in the system browser and performs
+//    PKCE-based auth directly. The shared Safari session cookie still gives
+//    best-effort SSO for Teams/Outlook.
+//
+//  Azure AD requirement:
+//    Register an iOS platform in your App Registration:
+//      Authentication → Add a platform → iOS/macOS
+//      Bundle ID: com.cachatto.Master-SSO
+//      (Azure auto-generates the redirect URI: msauth.com.cachatto.Master-SSO://auth)
 //
 
-import AuthenticationServices
 import Combine
 import Foundation
+import MSAL
 import os
 import UIKit
 
 @MainActor
-final class AuthManager: NSObject, ObservableObject {
+final class AuthManager: ObservableObject {
 
     static let shared = AuthManager()
 
@@ -33,7 +39,7 @@ final class AuthManager: NSObject, ObservableObject {
         case unauthenticated
         case authenticating
         case authenticated(AuthToken)
-        case failed(String)          // error description for UI display
+        case failed(String)
 
         static func == (lhs: AuthState, rhs: AuthState) -> Bool {
             switch (lhs, rhs) {
@@ -56,64 +62,94 @@ final class AuthManager: NSObject, ObservableObject {
     // MARK: - Private
 
     private let logger = AppLogger.auth
-    private var activeSession: ASWebAuthenticationSession?
+    private var msalApp: MSALPublicClientApplication?
 
-    private override init() {
-        super.init()
+    private init() {
+        setupMSAL()
         restoreSessionIfValid()
+    }
+
+    // MARK: - MSAL setup
+
+    private func setupMSAL() {
+        do {
+            let authority = try MSALAADAuthority(url: AppConfig.authorityURL)
+            let config = MSALPublicClientApplicationConfig(
+                clientId: AppConfig.clientId,
+                redirectUri: AppConfig.redirectURI,
+                authority: authority
+            )
+            msalApp = try MSALPublicClientApplication(configuration: config)
+            logger.info("MSAL configured — clientId: \(AppConfig.clientId)")
+        } catch {
+            logger.error("MSAL setup failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Public API
 
-    /// Starts the federated sign-in flow via ASWebAuthenticationSession.
-    /// Safe to call from a SwiftUI button; guards against concurrent invocations.
+    /// Starts interactive sign-in via MSAL.
+    /// If Microsoft Authenticator is installed, it acts as a broker and tokens
+    /// are shared with Teams / Outlook automatically.
     func signIn() async {
-        // Prevent duplicate concurrent auth flows.
         guard authState != .authenticating else {
             logger.warning("Sign-in already in progress — ignoring duplicate call")
             return
         }
-        logger.info("Auth flow started")
+        guard let msalApp else {
+            authState = .failed("MSAL is not configured. Check clientId and authority.")
+            return
+        }
+
+        logger.info("MSAL auth flow started")
         authState = .authenticating
 
         do {
-            let pkce        = try PKCEHelper.generate()
-            let authURL     = try buildAuthorizationURL(pkce: pkce)
-            let callbackURL = try await presentAuthSession(url: authURL)
-            let code        = try extractAuthCode(from: callbackURL)
-            let token       = try await exchangeCodeForTokens(code: code, pkce: pkce)
+            let viewController = try presentingViewController()
+            let webviewParams   = MSALWebviewParameters(authPresentationViewController: viewController)
+            // .default uses the system browser / broker — required for broker SSO.
+            webviewParams.webviewType = .default
+
+            let params = MSALInteractiveTokenParameters(
+                scopes: AppConfig.scopes,
+                webviewParameters: webviewParams
+            )
+            params.promptType = .selectAccount
+
+            let result = try await acquireToken(app: msalApp, parameters: params)
+            let token  = makeAuthToken(from: result)
+
             try TokenManager.shared.save(token: token)
             authState = .authenticated(token)
-            logger.info("Auth flow completed — user signed in")
-        } catch AuthError.userCancelled {
-            // Cancellation is a normal user action, not an error.
-            logger.info("Sign-in cancelled by user — returning to unauthenticated state")
+            logger.info("MSAL auth completed — account: \(result.account.username ?? "unknown")")
+
+        } catch let nsError as NSError where isCancelledError(nsError) {
+            logger.info("Sign-in cancelled by user")
             authState = .unauthenticated
-        } catch let error as AuthError {
-            let description = error.errorDescription ?? error.localizedDescription
-            logger.error("Auth flow failed: \(description)")
-            authState = .failed(description)
+
         } catch {
-            logger.error("Auth flow unexpected error: \(error.localizedDescription)")
+            logger.error("MSAL auth failed: \(error.localizedDescription)")
             authState = .failed(error.localizedDescription)
         }
     }
 
-    /// Cancels an in-progress ASWebAuthenticationSession programmatically.
-    func cancelSignIn() {
-        guard case .authenticating = authState else { return }
-        activeSession?.cancel()
-        activeSession = nil
-        authState = .unauthenticated
-        logger.info("Sign-in cancelled programmatically")
-    }
-
-    /// Clears the local session. Optionally initiates IdP front-channel logout.
+    /// Removes the MSAL account and clears local state.
     func signOut() {
         logger.info("Sign-out initiated")
+        if let msalApp {
+            do {
+                let accounts = try msalApp.allAccounts()
+                for account in accounts {
+                    try msalApp.remove(account)
+                    logger.debug("Removed MSAL account: \(account.username ?? "?")")
+                }
+            } catch {
+                logger.error("MSAL account removal error: \(error.localizedDescription)")
+            }
+        }
         TokenManager.shared.deleteAll()
         authState = .unauthenticated
-        logger.info("Sign-out complete — session cleared")
+        logger.info("Sign-out complete")
     }
 
     // MARK: - Session restoration
@@ -127,147 +163,51 @@ final class AuthManager: NSObject, ObservableObject {
         logger.info("Session restored from Keychain")
     }
 
-    // MARK: - Authorization URL
+    // MARK: - Helpers
 
-    private func buildAuthorizationURL(pkce: PKCEParams) throws -> URL {
-        var components = URLComponents(string: AppConfig.authorizationEndpoint)
-        components?.queryItems = [
-            URLQueryItem(name: "client_id",             value: AppConfig.clientId),
-            URLQueryItem(name: "response_type",         value: "code"),
-            URLQueryItem(name: "redirect_uri",          value: AppConfig.redirectURI),
-            URLQueryItem(name: "scope",                 value: AppConfig.scopes),
-            URLQueryItem(name: "code_challenge",        value: pkce.challenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256"),
-            URLQueryItem(name: "response_mode",         value: "query"),
-        ]
-        guard let url = components?.url else {
-            throw AuthError.invalidURL
-        }
-        logger.debug("Authorization URL constructed")
-        return url
-    }
-
-    // MARK: - ASWebAuthenticationSession
-
-    private func presentAuthSession(url: URL) async throws -> URL {
-        logger.info("Opening ASWebAuthenticationSession")
-        return try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(
-                url: url,
-                callbackURLScheme: "master-sso"
-            ) { [weak self] callbackURL, error in
-                guard let self else { return }
+    /// Wraps MSAL's completion-handler-based acquireToken in async/await.
+    private func acquireToken(
+        app: MSALPublicClientApplication,
+        parameters: MSALInteractiveTokenParameters
+    ) async throws -> MSALResult {
+        try await withCheckedThrowingContinuation { continuation in
+            app.acquireToken(with: parameters) { result, error in
                 if let error {
-                    let asError = error as? ASWebAuthenticationSessionError
-                    if asError?.code == .canceledLogin {
-                        self.logger.info("User cancelled sign-in")
-                        continuation.resume(throwing: AuthError.userCancelled)
-                    } else {
-                        self.logger.error("Session error: \(error.localizedDescription)")
-                        continuation.resume(throwing: AuthError.sessionError(error))
-                    }
-                    return
-                }
-                guard let callbackURL else {
-                    self.logger.error("Callback URL was nil")
+                    continuation.resume(throwing: error)
+                } else if let result {
+                    continuation.resume(returning: result)
+                } else {
                     continuation.resume(throwing: AuthError.invalidCallback)
-                    return
                 }
-                self.logger.info("Redirect received from authorization server")
-                continuation.resume(returning: callbackURL)
             }
-            // Share the existing Safari browser session so Microsoft apps can
-            // inherit the authenticated cookie — best-effort SSO without a broker.
-            session.prefersEphemeralWebBrowserSession = false
-            session.presentationContextProvider = self
-            activeSession = session
-            session.start()
         }
     }
 
-    // MARK: - Code extraction
-
-    private func extractAuthCode(from callbackURL: URL) throws -> String {
-        let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
-        let items = components?.queryItems ?? []
-
-        if let errorParam = items.first(where: { $0.name == "error" })?.value {
-            let description = items.first(where: { $0.name == "error_description" })?.value ?? ""
-            throw AuthError.authorizationFailed("\(errorParam): \(description)")
-        }
-        guard let code = items.first(where: { $0.name == "code" })?.value else {
-            throw AuthError.invalidCallback
-        }
-        logger.debug("Authorization code extracted from callback")
-        return code
+    private func makeAuthToken(from result: MSALResult) -> AuthToken {
+        AuthToken(
+            idToken:      result.idToken,
+            accessToken:  result.accessToken,
+            refreshToken: nil,         // MSAL manages refresh tokens internally
+            expiresAt:    result.expiresOn ?? Date().addingTimeInterval(3600),
+            tokenType:    "Bearer",
+            scope:        result.scopes.joined(separator: " ")
+        )
     }
 
-    // MARK: - Token exchange
-
-    private func exchangeCodeForTokens(code: String, pkce: PKCEParams) async throws -> AuthToken {
-        logger.info("Exchanging authorization code for tokens")
-        guard let url = URL(string: AppConfig.tokenEndpoint) else {
+    private func presentingViewController() throws -> UIViewController {
+        let windowScene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
+        guard let root = windowScene?.keyWindow?.rootViewController else {
             throw AuthError.invalidURL
         }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: String] = [
-            "grant_type":    "authorization_code",
-            "client_id":     AppConfig.clientId,
-            "code":          code,
-            "redirect_uri":  AppConfig.redirectURI,
-            "code_verifier": pkce.verifier,
-        ]
-        request.httpBody = body
-            .map { "\($0.key)=\($0.value.urlQueryEncoded)" }
-            .joined(separator: "&")
-            .data(using: .utf8)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw AuthError.tokenExchangeFailed(statusCode: 0, body: "No HTTP response")
-        }
-        guard (200...299).contains(http.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            logger.error("Token exchange HTTP \(http.statusCode): \(body)")
-            throw AuthError.tokenExchangeFailed(statusCode: http.statusCode, body: body)
-        }
-
-        do {
-            let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
-            logger.info("Tokens received and decoded")
-            return tokenResponse.toAuthToken()
-        } catch {
-            logger.error("Token decoding failed: \(error.localizedDescription)")
-            throw AuthError.tokenDecodingFailed
-        }
+        // Walk to the topmost presented controller
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+        return top
     }
-}
 
-// MARK: - ASWebAuthenticationPresentationContextProviding
-
-extension AuthManager: ASWebAuthenticationPresentationContextProviding {
-    nonisolated func presentationAnchor(
-        for session: ASWebAuthenticationSession
-    ) -> ASPresentationAnchor {
-        // Protocol requires nonisolated; Apple guarantees this is called on the main
-        // thread, so assumeIsolated is safe here.
-        MainActor.assumeIsolated {
-            let windowScene = UIApplication.shared.connectedScenes
-                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
-            return windowScene?.keyWindow ?? ASPresentationAnchor()
-        }
-    }
-}
-
-// MARK: - String helpers
-
-private extension String {
-    var urlQueryEncoded: String {
-        addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? self
+    private func isCancelledError(_ error: NSError) -> Bool {
+        error.domain == MSALErrorDomain &&
+        error.code   == MSALError.userCanceled.rawValue
     }
 }

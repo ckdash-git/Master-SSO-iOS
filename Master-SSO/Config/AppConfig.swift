@@ -3,8 +3,6 @@
 //  Master-SSO
 //
 //  Central configuration for OAuth/OIDC endpoints and client credentials.
-//  Replace placeholder values with your actual Azure AD App Registration details
-//  before running the app.
 //
 
 import Foundation
@@ -12,48 +10,31 @@ import Foundation
 enum AppConfig {
 
     // MARK: - Client Credentials
-    // Obtain these from your Azure AD App Registration (or custom IdP admin console).
 
-    /// Azure AD Application (client) ID registered for this app.
     static let clientId: String = "3f36b455-044c-4632-925a-2d8a987c6d85"
-
-    /// Azure AD tenant ID, or "common" / "organizations" for multi-tenant.
     static let tenantId: String = "50a45856-b465-422f-b6da-bf1ce70c4952"
 
     // MARK: - Redirect URI
-    // Must match exactly what is registered in your App Registration's
-    // "Redirect URIs" list (type: Public client / native).
-    // Also add the scheme portion ("master-sso") to Info.plist CFBundleURLTypes.
-
-    static let redirectURI: String = "master-sso://auth/callback"
+    // MSAL broker format: msauth.<bundle-id>://auth
+    // Register this in Azure AD → App Registration → Authentication → iOS/macOS platform.
+    // Bundle ID: com.cachatto.Master-SSO
+    static let redirectURI: String = "msauth.com.cachatto.Master-SSO://auth"
 
     // MARK: - Scopes
-    // openid / profile / email  → required for ID token claims
-    // offline_access            → enables refresh token issuance
+    // MSAL accepts an array; openid/profile/email are added automatically by MSAL.
+    // offline_access enables refresh tokens.
+    static let scopes: [String] = ["openid", "profile", "email", "offline_access"]
 
-    static let scopes: String = "openid profile email offline_access"
+    // MARK: - Authority
+    static var authorityURL: URL {
+        URL(string: "https://login.microsoftonline.com/\(tenantId)")!
+    }
 
-    // MARK: - Endpoints
-    // Microsoft's authorization server federates automatically to your custom IdP
-    // (e.g., Okta, Ping, ADFS) based on the tenant's home-realm-discovery policy.
-
+    // MARK: - Kept for reference / legacy token exchange (not used with MSAL)
     static var authorizationEndpoint: String {
         "https://login.microsoftonline.com/\(tenantId)/oauth2/v2.0/authorize"
     }
-
     static var tokenEndpoint: String {
         "https://login.microsoftonline.com/\(tenantId)/oauth2/v2.0/token"
     }
-
-    /// Front-channel logout endpoint — used to clear the IdP session on sign-out.
-    static var logoutEndpoint: String {
-        "https://login.microsoftonline.com/\(tenantId)/oauth2/v2.0/logout"
-    }
-
-    // MARK: - Custom IdP (optional override)
-    // If your authentication flow starts directly at your custom IdP rather than
-    // at Microsoft, uncomment and update the lines below:
-    //
-    // static let authorizationEndpoint = "https://your-idp.example.com/oauth2/v2.0/authorize"
-    // static let tokenEndpoint         = "https://your-idp.example.com/oauth2/v2.0/token"
 }

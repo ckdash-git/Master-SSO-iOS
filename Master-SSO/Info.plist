@@ -19,11 +19,12 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
 
-    <!-- ── SSO redirect URI scheme ─────────────────────────────────────── -->
+    <!-- ── MSAL broker redirect URI scheme ─────────────────────────────── -->
     <!--
-        Must match AppConfig.redirectURI scheme ("master-sso").
-        Register the same redirect URI in your Azure AD App Registration
-        under "Mobile and desktop applications" → Redirect URIs.
+        MSAL broker format: msauth.<bundle-id>://auth
+        Register this in Azure AD → App Registration → Authentication →
+        Add a platform → iOS/macOS, entering Bundle ID: com.cachatto.Master-SSO
+        Azure auto-generates the redirect URI msauth.com.cachatto.Master-SSO://auth
     -->
     <key>CFBundleURLTypes</key>
     <array>
@@ -32,7 +33,7 @@
             <string>com.cachatto.Master-SSO.auth</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>master-sso</string>
+                <string>msauth.com.cachatto.Master-SSO</string>
             </array>
         </dict>
     </array>
@@ -42,11 +43,15 @@
         iOS 9+ requires schemas queried with canOpenURL to be declared here.
         "msteams"    — Microsoft Teams URL scheme
         "ms-outlook" — Microsoft Outlook URL scheme
+        "msauthv2"   — Microsoft Authenticator broker (MSAL v2)
+        "msauthv3"   — Microsoft Authenticator broker (MSAL v3)
     -->
     <key>LSApplicationQueriesSchemes</key>
     <array>
         <string>msteams</string>
         <string>ms-outlook</string>
+        <string>msauthv2</string>
+        <string>msauthv3</string>
     </array>
 
     <!-- ── Interface ───────────────────────────────────────────────────── -->
