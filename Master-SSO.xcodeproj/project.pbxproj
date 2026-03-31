@@ -78,6 +78,7 @@
 			);
 			name = "Master-SSO";
 			packageProductDependencies = (
+				2F541A672F7BA3C9002FFE44 /* MSAL */,
 			);
 			productName = "Master-SSO";
 			productReference = 2F541A502F7BA3C6002FFE44 /* Master-SSO.app */;
@@ -114,6 +115,9 @@
 			targets = (
 				2F541A4F2F7BA3C6002FFE44 /* Master-SSO */,
 			);
+			packageReferences = (
+				2F541A642F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
+			);
 		};
 /* End PBXProject section */
 
@@ -136,6 +140,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2F541A642F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = "1.5.0";
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2F541A672F7BA3C9002FFE44 /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2F541A642F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2F541A592F7BA3C9002FFE44 /* Debug */ = {
