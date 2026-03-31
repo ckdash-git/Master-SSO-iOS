@@ -33,6 +33,18 @@ final class AppLauncher {
         )
     }
 
+    // MARK: - Microsoft Outlook
+
+    /// Opens Microsoft Outlook, or navigates to the App Store listing if not installed.
+    func openOutlook() {
+        logger.info("Requesting launch of Microsoft Outlook")
+        launch(
+            appSchemeURL:    "ms-outlook://",
+            appStoreLinkURL: "https://apps.apple.com/app/microsoft-outlook/id951937596",
+            appName:         "Microsoft Outlook"
+        )
+    }
+
     // MARK: - Internal launcher
 
     private func launch(
