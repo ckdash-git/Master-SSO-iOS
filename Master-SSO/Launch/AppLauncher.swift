@@ -2,18 +2,18 @@
 //  AppLauncher.swift
 //  Master-SSO
 //
-//  Handles deep-link launching of Microsoft apps installed on the device.
-//  Performs an App Store fallback when the target app is not installed.
+//  Handles deep-link launching of Microsoft and Google apps installed on the device.
+//  Falls back to the App Store when the target app is not installed.
 //
-//  SSO behaviour:
-//  - loginHint + tenantId are passed in the URL scheme so Teams/Outlook
-//    know which account and tenant to authenticate against, avoiding a
-//    blank sign-in screen.
-//  - Credentials are never injected. The user still authenticates inside
-//    the Microsoft app, but the shared Safari browser cookies from the
-//    preceding ASWebAuthenticationSession may allow that to happen
-//    silently if Teams/Outlook use non-ephemeral ASWebAuthenticationSession
-//    internally (best-effort; depends on Microsoft's MSAL configuration).
+//  Microsoft SSO behaviour:
+//  loginHint + tenantId are passed in the URL scheme so Teams/Outlook know which
+//  account and tenant to authenticate against. With the MSAL broker active, apps
+//  receive tokens silently from the shared com.microsoft.adalcache keychain group.
+//
+//  Google SSO behaviour:
+//  Google apps share authentication through Google's own account system on iOS.
+//  If the user is already signed into the same Google account in Gmail or any other
+//  Google app, further Google apps open without re-authentication.
 //
 
 import os
@@ -30,14 +30,9 @@ final class AppLauncher {
     // MARK: - Microsoft Teams
 
     /// Opens Microsoft Teams with an optional account hint.
-    /// - Parameters:
-    ///   - loginHint: User's email address — pre-selects the account in Teams.
-    ///   - tenantId:  Azure AD tenant ID — directs Teams to the right tenant.
     func openTeams(loginHint: String? = nil, tenantId: String? = nil) {
         logger.info("Requesting launch of Microsoft Teams (hint: \(loginHint ?? "none"))")
 
-        // Build URL with auth hints when available.
-        // msteams://?tenantId=<tid>&loginhint=<email>
         var urlString = "msteams://"
         var params: [String: String] = [:]
         if let tenantId  { params["tenantId"]  = tenantId }
@@ -59,11 +54,9 @@ final class AppLauncher {
     // MARK: - Microsoft Outlook
 
     /// Opens Microsoft Outlook with an optional account hint.
-    /// - Parameter loginHint: User's email address — pre-selects the account in Outlook.
     func openOutlook(loginHint: String? = nil) {
         logger.info("Requesting launch of Microsoft Outlook (hint: \(loginHint ?? "none"))")
 
-        // ms-outlook:///?accountId=<email> is supported in recent Outlook builds.
         var urlString = "ms-outlook://"
         if let loginHint {
             urlString += "?accountId=\(loginHint.urlEncoded)"
@@ -76,14 +69,65 @@ final class AppLauncher {
         )
     }
 
+    // MARK: - Gmail
+
+    /// Opens Gmail. All accounts already signed in on the device are available.
+    func openGmail() {
+        logger.info("Requesting launch of Gmail")
+        launch(
+            appSchemeURL:    "googlegmail://",
+            appStoreLinkURL: "https://apps.apple.com/app/gmail-email-by-google/id422689480",
+            appName:         "Gmail"
+        )
+    }
+
+    // MARK: - Google Meet
+
+    /// Opens Google Meet.
+    func openGoogleMeet() {
+        logger.info("Requesting launch of Google Meet")
+        launch(
+            appSchemeURL:    "meet://",
+            appStoreLinkURL: "https://apps.apple.com/app/google-meet/id1096918571",
+            appName:         "Google Meet"
+        )
+    }
+
+    // MARK: - Google Drive
+
+    /// Opens Google Drive.
+    func openGoogleDrive() {
+        logger.info("Requesting launch of Google Drive")
+        launch(
+            appSchemeURL:    "googledrive://",
+            appStoreLinkURL: "https://apps.apple.com/app/google-drive/id507874739",
+            appName:         "Google Drive"
+        )
+    }
+
+    // MARK: - Google Calendar
+
+    /// Opens Google Calendar.
+    func openGoogleCalendar() {
+        logger.info("Requesting launch of Google Calendar")
+        launch(
+            appSchemeURL:    "googlecalendar://",
+            appStoreLinkURL: "https://apps.apple.com/app/google-calendar-time-planner/id909319292",
+            appName:         "Google Calendar"
+        )
+    }
+
     // MARK: - Diagnostics
 
-    /// Logs the install status of every managed Microsoft app.
-    /// Call once at app startup to capture the environment in Console.app.
+    /// Logs the install status of every managed app at startup.
     func logInstallStatus() {
         let apps: [(name: String, scheme: String)] = [
             ("Microsoft Teams",   "msteams://"),
             ("Microsoft Outlook", "ms-outlook://"),
+            ("Gmail",             "googlegmail://"),
+            ("Google Meet",       "meet://"),
+            ("Google Drive",      "googledrive://"),
+            ("Google Calendar",   "googlecalendar://"),
         ]
         for app in apps {
             if let url = URL(string: app.scheme) {
@@ -106,8 +150,6 @@ final class AppLauncher {
             return
         }
 
-        // canOpenURL requires the base scheme (without query params) to work.
-        // Use a clean base URL for the availability check.
         let baseScheme = schemeURL.scheme.map { URL(string: "\($0)://") } ?? schemeURL
 
         if UIApplication.shared.canOpenURL(baseScheme ?? schemeURL) {
@@ -139,3 +181,4 @@ private extension String {
         addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? self
     }
 }
+

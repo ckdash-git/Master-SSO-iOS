@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1B510D5F2F7BC80C00C2C769 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = 2F541A672F7BA3C9002FFE44 /* MSAL */; };
+		2F541A722F7BA3C9002FFE44 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 2F541A712F7BA3C9002FFE44 /* GoogleSignIn */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,7 +20,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				"Master-SSO.entitlements",
 			);
 			target = 2F541A4F2F7BA3C6002FFE44 /* Master-SSO */;
 		};
@@ -42,6 +42,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1B510D5F2F7BC80C00C2C769 /* MSAL in Frameworks */,
+				2F541A722F7BA3C9002FFE44 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,6 +86,7 @@
 			name = "Master-SSO";
 			packageProductDependencies = (
 				2F541A672F7BA3C9002FFE44 /* MSAL */,
+				2F541A712F7BA3C9002FFE44 /* GoogleSignIn */,
 			);
 			productName = "Master-SSO";
 			productReference = 2F541A502F7BA3C6002FFE44 /* Master-SSO.app */;
@@ -116,6 +118,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				2F541A642F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
+				2F541A702F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2F541A512F7BA3C6002FFE44 /* Products */;
@@ -361,6 +364,14 @@
 				minimumVersion = 1.5.0;
 			};
 		};
+		2F541A702F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -368,6 +379,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2F541A642F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
 			productName = MSAL;
+		};
+		2F541A712F7BA3C9002FFE44 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2F541A702F7BA3C9002FFE44 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

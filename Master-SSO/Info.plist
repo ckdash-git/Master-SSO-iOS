@@ -36,15 +36,36 @@
                 <string>msauth.com.cachatto.Master-SSO</string>
             </array>
         </dict>
+        <!-- ── Google OAuth callback scheme ──────────────────────────────── -->
+        <!--
+            Reversed client ID from Google Cloud Console →
+            APIs & Services → Credentials → your iOS OAuth 2.0 Client ID.
+            Replace with the actual reversed client ID for your credentials.
+            e.g. com.googleusercontent.apps.123456789-abcdefghij
+        -->
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.googleusercontent.apps</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID</string>
+            </array>
+        </dict>
     </array>
 
     <!-- ── canOpenURL whitelist ─────────────────────────────────────────── -->
     <!--
         iOS 9+ requires schemas queried with canOpenURL to be declared here.
-        "msteams"    — Microsoft Teams URL scheme
-        "ms-outlook" — Microsoft Outlook URL scheme
-        "msauthv2"   — Microsoft Authenticator broker (MSAL v2)
-        "msauthv3"   — Microsoft Authenticator broker (MSAL v3)
+        Microsoft:
+          "msteams"         — Microsoft Teams
+          "ms-outlook"      — Microsoft Outlook
+          "msauthv2"        — Microsoft Authenticator broker (MSAL v2)
+          "msauthv3"        — Microsoft Authenticator broker (MSAL v3)
+        Google:
+          "googlegmail"     — Gmail
+          "meet"            — Google Meet
+          "googledrive"     — Google Drive
+          "googlecalendar"  — Google Calendar
     -->
     <key>LSApplicationQueriesSchemes</key>
     <array>
@@ -52,6 +73,10 @@
         <string>ms-outlook</string>
         <string>msauthv2</string>
         <string>msauthv3</string>
+        <string>googlegmail</string>
+        <string>meet</string>
+        <string>googledrive</string>
+        <string>googlecalendar</string>
     </array>
 
     <!-- ── Interface ───────────────────────────────────────────────────── -->
