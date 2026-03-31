@@ -43,7 +43,10 @@ struct DashboardView: View {
                             iconName: "video.fill",
                             tint: .purple
                         ) {
-                            AppLauncher.shared.openTeams()
+                            AppLauncher.shared.openTeams(
+                                loginHint: token?.userEmail,
+                                tenantId: AppConfig.tenantId
+                            )
                         }
 
                         AppLaunchButton(
@@ -52,7 +55,9 @@ struct DashboardView: View {
                             iconName: "envelope.fill",
                             tint: .blue
                         ) {
-                            AppLauncher.shared.openOutlook()
+                            AppLauncher.shared.openOutlook(
+                                loginHint: token?.userEmail
+                            )
                         }
                     }
 
@@ -145,14 +150,15 @@ private struct AppLaunchButton: View {
 private struct SSOInfoNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("SSO Behaviour", systemImage: "info.circle")
+            Label("About SSO on personal iPhone", systemImage: "info.circle")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
             Text(
-                "Microsoft Teams and Outlook may skip their own sign-in if you already " +
-                "authenticated in Safari during this session. This relies on shared " +
-                "browser cookies — no credentials are injected."
+                "Your account is pre-filled when opening Teams and Outlook. " +
+                "If prompted to sign in, complete the Microsoft login once — " +
+                "the shared browser session may allow it to complete silently. " +
+                "Full silent SSO requires MDM or Microsoft Authenticator."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
