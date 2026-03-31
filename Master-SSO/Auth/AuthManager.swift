@@ -127,9 +127,12 @@ final class AuthManager: ObservableObject {
             logger.info("Sign-in cancelled by user")
             authState = .unauthenticated
 
-        } catch {
-            logger.error("MSAL auth failed: \(error.localizedDescription)")
-            authState = .failed(error.localizedDescription)
+        } catch let nsError as NSError {
+            let sub = nsError.userInfo[MSALInternalErrorCodeKey] as? Int ?? 0
+            let desc = nsError.userInfo[MSALErrorDescriptionKey] as? String ?? nsError.localizedDescription
+            let oauthErr = nsError.userInfo[MSALOAuthErrorKey] as? String ?? ""
+            logger.error("MSAL auth failed — domain: \(nsError.domain) code: \(nsError.code) sub: \(sub) oauth: \(oauthErr) — \(desc)")
+            authState = .failed(desc)
         }
     }
 
