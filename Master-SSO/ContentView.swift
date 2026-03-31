@@ -2,23 +2,34 @@
 //  ContentView.swift
 //  Master-SSO
 //
-//  Created by CIPL User01 on 31/03/26.
+//  Root view that routes to LoginView or DashboardView based on AuthManager state.
 //
 
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
 
-#Preview {
-    ContentView()
+    @EnvironmentObject private var authManager: AuthManager
+
+    var body: some View {
+        Group {
+            switch authManager.authState {
+            case .unauthenticated, .failed:
+                LoginView()
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading),
+                        removal:   .move(edge: .leading)
+                    ))
+            case .authenticating:
+                LoginView()
+            case .authenticated:
+                DashboardView()
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal:   .move(edge: .trailing)
+                    ))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+    }
 }

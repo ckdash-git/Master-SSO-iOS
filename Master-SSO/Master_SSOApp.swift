@@ -2,16 +2,21 @@
 //  Master_SSOApp.swift
 //  Master-SSO
 //
-//  Created by CIPL User01 on 31/03/26.
+//  App entry point. Injects AuthManager as a shared environment object so
+//  every view in the hierarchy can observe authentication state changes.
 //
 
 import SwiftUI
 
 @main
 struct Master_SSOApp: App {
+
+    @StateObject private var authManager = AuthManager.shared
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(authManager)
         }
     }
 }
