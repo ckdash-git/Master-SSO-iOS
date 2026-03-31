@@ -79,6 +79,9 @@ final class AuthManager: ObservableObject {
                 redirectUri: AppConfig.redirectURI,
                 authority: authority
             )
+            // Must match the keychain-access-groups entitlement so the broker
+            // can read/write its cryptographic key without errSecMissingEntitlement.
+            config.cacheConfig.keychainSharingGroup = "com.microsoft.adalcache"
             msalApp = try MSALPublicClientApplication(configuration: config)
             logger.info("MSAL configured — clientId: \(AppConfig.clientId)")
         } catch {

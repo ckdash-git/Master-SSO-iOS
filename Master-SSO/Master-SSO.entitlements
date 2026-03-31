@@ -4,9 +4,10 @@
 <dict>
     <!-- Required by MSAL broker to store/retrieve its cryptographic key securely. -->
     <!-- Without this, Keychain operations return errSecMissingEntitlement (-34018). -->
+    <!-- com.microsoft.adalcache is the shared group MSAL uses for broker key storage. -->
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)com.cachatto.Master-SSO</string>
+        <string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
     </array>
 </dict>
 </plist>
