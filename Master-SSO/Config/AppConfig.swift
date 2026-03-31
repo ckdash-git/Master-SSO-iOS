@@ -30,13 +30,13 @@ enum AppConfig {
     // iOS OAuth 2.0 Client ID from Google Cloud Console →
     //   APIs & Services → Credentials → Create credentials → OAuth client ID → iOS
     //   Application type: iOS, Bundle ID: com.cachatto.Master-SSO
-    static let googleClientId: String = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+    static let googleClientId: String = "541572207213-mus0961fn7f5pv26ih1qvorvd5cdiibk.apps.googleusercontent.com"
 
     // Reversed client ID — used as the OAuth callback URL scheme.
     // Derived by reversing the domain parts of googleClientId:
     //   "123456789-abc.apps.googleusercontent.com" → "com.googleusercontent.apps.123456789-abc"
     // Must also be added to CFBundleURLSchemes in Info.plist.
-    static let googleReversedClientId: String = "com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID"
+    static let googleReversedClientId: String = "com.googleusercontent.apps.541572207213-mus0961fn7f5pv26ih1qvorvd5cdiibk"
 
     // MARK: - Legacy reference (not used with MSAL)
 
