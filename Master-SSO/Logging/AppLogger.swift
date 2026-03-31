@@ -8,6 +8,7 @@
 //  Console.app filter:  subsystem = com.cachatto.Master-SSO
 //
 
+import Foundation
 import os
 
 enum AppLogger {

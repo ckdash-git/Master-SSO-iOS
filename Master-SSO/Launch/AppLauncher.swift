@@ -11,6 +11,7 @@
 //  when they open their own embedded browser sessions.
 //
 
+import os
 import UIKit
 
 @MainActor
