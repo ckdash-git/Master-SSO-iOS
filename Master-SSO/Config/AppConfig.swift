@@ -21,9 +21,9 @@ enum AppConfig {
     static let redirectURI: String = "msauth.com.cachatto.Master-SSO://auth"
 
     // MARK: - Scopes
-    // MSAL accepts an array; openid/profile/email are added automatically by MSAL.
-    // offline_access enables refresh tokens.
-    static let scopes: [String] = ["openid", "profile", "email", "offline_access"]
+    // MSAL automatically adds openid, profile, and offline_access — do not repeat them here.
+    // User.Read grants access to the signed-in user's basic profile (name, email).
+    static let scopes: [String] = ["User.Read"]
 
     // MARK: - Authority
     static var authorityURL: URL {
