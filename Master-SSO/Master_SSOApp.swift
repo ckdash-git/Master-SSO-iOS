@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import os
 
 @main
 struct Master_SSOApp: App {
@@ -17,6 +18,10 @@ struct Master_SSOApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(authManager)
+                .task {
+                    AppLogger.general.info("Master-SSO application launched")
+                    AppLauncher.shared.logInstallStatus()
+                }
         }
     }
 }

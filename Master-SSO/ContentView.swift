@@ -3,13 +3,17 @@
 //  Master-SSO
 //
 //  Root view that routes to LoginView or DashboardView based on AuthManager state.
+//  State transitions are logged for diagnostics.
 //
 
 import SwiftUI
+import os
 
 struct ContentView: View {
 
     @EnvironmentObject private var authManager: AuthManager
+
+    private let logger = AppLogger.general
 
     var body: some View {
         Group {
@@ -31,5 +35,8 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+        .onChange(of: authManager.authState) { oldState, newState in
+            logger.info("Auth state: \(String(describing: oldState)) → \(String(describing: newState))")
+        }
     }
 }

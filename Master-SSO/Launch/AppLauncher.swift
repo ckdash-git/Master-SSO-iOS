@@ -45,6 +45,23 @@ final class AppLauncher {
         )
     }
 
+    // MARK: - Diagnostics
+
+    /// Logs the install status of every managed Microsoft app.
+    /// Call once at app startup to capture the environment in Console.app.
+    func logInstallStatus() {
+        let apps: [(name: String, scheme: String)] = [
+            ("Microsoft Teams",   "msteams://"),
+            ("Microsoft Outlook", "ms-outlook://"),
+        ]
+        for app in apps {
+            if let url = URL(string: app.scheme) {
+                let installed = UIApplication.shared.canOpenURL(url)
+                logger.info("\(app.name) installed: \(installed)")
+            }
+        }
+    }
+
     // MARK: - Internal launcher
 
     private func launch(
