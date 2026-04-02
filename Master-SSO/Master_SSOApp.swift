@@ -2,8 +2,9 @@
 //  Master_SSOApp.swift
 //  Master-SSO
 //
-//  App entry point. Injects AuthManager and GoogleAuthManager as shared environment
-//  objects so every view in the hierarchy can observe authentication state changes.
+//  App entry point. IdPAuthManager is the primary auth driver.
+//  AuthManager (MSAL) and GoogleAuthManager are kept as environment objects
+//  so their broker/SDK benefits are available to views that need them.
 //
 
 import GoogleSignIn
@@ -14,24 +15,29 @@ import os
 @main
 struct Master_SSOApp: App {
 
-    @StateObject private var authManager = AuthManager.shared
+    @StateObject private var idpAuthManager    = IdPAuthManager.shared
+    @StateObject private var authManager       = AuthManager.shared
     @StateObject private var googleAuthManager = GoogleAuthManager.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(idpAuthManager)
                 .environmentObject(authManager)
                 .environmentObject(googleAuthManager)
                 .task {
                     AppLogger.general.info("Master-SSO application launched")
                     AppLauncher.shared.logInstallStatus()
-                    // Attempt to restore a previous Google sign-in silently.
                     await googleAuthManager.restoreSignIn()
                 }
                 .onOpenURL { url in
-                    // Google Sign-In OAuth callback must be checked first.
+                    // 1. Custom IdP (Casdoor) callback — master-sso://oauth/callback
+                    if url.scheme == "master-sso" { return }   // handled by ASWebAuthenticationSession
+
+                    // 2. Google Sign-In callback
                     if googleAuthManager.handle(url) { return }
-                    // Forward remaining broker callbacks to MSAL (Microsoft Authenticator).
+
+                    // 3. MSAL broker callback (Microsoft Authenticator)
                     MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: nil)
                 }
         }

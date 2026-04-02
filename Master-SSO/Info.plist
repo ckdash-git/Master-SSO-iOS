@@ -20,14 +20,18 @@
     <string>6.0</string>
 
     <!-- ── MSAL broker redirect URI scheme ─────────────────────────────── -->
-    <!--
-        MSAL broker format: msauth.<bundle-id>://auth
-        Register this in Azure AD → App Registration → Authentication →
-        Add a platform → iOS/macOS, entering Bundle ID: com.cachatto.Master-SSO
-        Azure auto-generates the redirect URI msauth.com.cachatto.Master-SSO://auth
-    -->
     <key>CFBundleURLTypes</key>
     <array>
+        <!-- Custom IdP (Casdoor) OAuth callback -->
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.cachatto.Master-SSO.idp</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>master-sso</string>
+            </array>
+        </dict>
+        <!-- MSAL broker redirect URI: msauth.<bundle-id>://auth -->
         <dict>
             <key>CFBundleURLName</key>
             <string>com.cachatto.Master-SSO.auth</string>
@@ -36,13 +40,7 @@
                 <string>msauth.com.cachatto.Master-SSO</string>
             </array>
         </dict>
-        <!-- ── Google OAuth callback scheme ──────────────────────────────── -->
-        <!--
-            Reversed client ID from Google Cloud Console →
-            APIs & Services → Credentials → your iOS OAuth 2.0 Client ID.
-            Replace with the actual reversed client ID for your credentials.
-            e.g. com.googleusercontent.apps.123456789-abcdefghij
-        -->
+        <!-- Google OAuth callback scheme (reversed client ID) -->
         <dict>
             <key>CFBundleURLName</key>
             <string>com.googleusercontent.apps</string>

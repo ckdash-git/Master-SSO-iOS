@@ -38,6 +38,22 @@ enum AppConfig {
     // Must also be added to CFBundleURLSchemes in Info.plist.
     static let googleReversedClientId: String = "com.googleusercontent.apps.541572207213-mus0961fn7f5pv26ih1qvorvd5cdiibk"
 
+    // MARK: - Custom IdP (Casdoor)
+    // Primary authentication entry point — the IdP page lets the user pick their
+    // identity provider (Microsoft, Google, …) and handles federation.
+
+    static let idpClientId:     String = "e5aaa54896509de4b41a"
+    // NOTE: storing client_secret in a native app binary is acceptable for internal
+    // tooling but should be removed once the Casdoor app is set to "public" client.
+    static let idpClientSecret: String = "f6a21ebc4716d86a96bab263656d43f1208150e8"
+    // Registered as an allowed redirect URI in Casdoor → Applications → your app
+    static let idpRedirectURI:  String = "master-sso://oauth/callback"
+
+    static let idpAuthorizationEndpoint: String = "https://cachatto.click/login/oauth/authorize"
+    static let idpTokenEndpoint:         String = "https://cachatto.click/api/login/oauth/access_token"
+    static let idpUserInfoEndpoint:      String = "https://cachatto.click/api/userinfo"
+    static let idpIssuer:                String = "https://cachatto.click"
+
     // MARK: - Legacy reference (not used with MSAL)
 
     static var authorizationEndpoint: String {

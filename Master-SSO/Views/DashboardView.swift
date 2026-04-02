@@ -2,34 +2,39 @@
 //  DashboardView.swift
 //  Master-SSO
 //
-//  Shown after successful Microsoft authentication. Displays identity and launch
-//  buttons for Microsoft and Google apps. Google sign-in is optional — the user
-//  can connect their Google account to enable one-tap access to Google Workspace.
+//  Shown after successful IdP authentication. Displays the user's unified identity
+//  (from the Casdoor IdP token) and one-tap launch buttons for all Microsoft and
+//  Google Workspace apps.
+//
+//  SSO behaviour:
+//  - Microsoft apps  — login hint + tenant passed via URL scheme; MSAL broker
+//                      (if Authenticator is installed) provides silent SSO.
+//  - Google apps     — the IdP federation establishes a shared Safari session;
+//                      Google apps reuse that session automatically.
+//  - Optional Google SDK login is still available for users who want an explicit
+//                      Google account linked for better app-level SSO.
 //
 
 import SwiftUI
 
 struct DashboardView: View {
 
-    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var idpAuthManager:    IdPAuthManager
     @EnvironmentObject private var googleAuthManager: GoogleAuthManager
 
-    private var msToken: AuthToken? {
-        guard case .authenticated(let t) = authManager.authState else { return nil }
-        return t
-    }
+    private var token: AuthToken? { idpAuthManager.currentToken }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
 
-                    // ── Microsoft identity card ──────────────────────────
+                    // ── Identity card (from IdP token) ───────────────────
                     IdentityCard(
-                        identifier: msToken?.displayIdentifier ?? "Unknown User",
-                        provider: "Microsoft",
-                        iconName: "person.circle.fill",
-                        tint: .blue
+                        identifier: token?.displayIdentifier ?? "Organisation Account",
+                        provider:   "Organisation SSO",
+                        iconName:   "building.2.crop.circle.fill",
+                        tint:       .blue
                     )
                     .padding(.top, 8)
 
@@ -40,31 +45,76 @@ struct DashboardView: View {
                         SectionHeader(title: "Microsoft Apps")
 
                         AppLaunchButton(
-                            title: "Microsoft Teams",
+                            title:    "Microsoft Teams",
                             subtitle: "Meetings, chat & collaboration",
                             iconName: "video.fill",
-                            tint: .purple
+                            tint:     .purple
                         ) {
                             AppLauncher.shared.openTeams(
-                                loginHint: msToken?.userEmail,
-                                tenantId: AppConfig.tenantId
+                                loginHint: token?.userEmail,
+                                tenantId:  AppConfig.tenantId
                             )
                         }
 
                         AppLaunchButton(
-                            title: "Microsoft Outlook",
+                            title:    "Microsoft Outlook",
                             subtitle: "Email, calendar & contacts",
                             iconName: "envelope.fill",
-                            tint: .blue
+                            tint:     .blue
                         ) {
-                            AppLauncher.shared.openOutlook(loginHint: msToken?.userEmail)
+                            AppLauncher.shared.openOutlook(loginHint: token?.userEmail)
                         }
                     }
 
                     Divider().padding(.horizontal)
 
-                    // ── Google section ───────────────────────────────────
-                    GoogleSection()
+                    // ── Google Workspace apps ────────────────────────────
+                    VStack(alignment: .leading, spacing: 16) {
+                        SectionHeader(title: "Google Workspace")
+
+                        AppLaunchButton(
+                            title:    "Gmail",
+                            subtitle: "Google email",
+                            iconName: "envelope.fill",
+                            tint:     Color(red: 0.84, green: 0.24, blue: 0.19)
+                        ) {
+                            AppLauncher.shared.openGmail(loginHint: token?.userEmail)
+                        }
+
+                        AppLaunchButton(
+                            title:    "Google Meet",
+                            subtitle: "Video meetings",
+                            iconName: "video.fill",
+                            tint:     Color(red: 0.0, green: 0.69, blue: 0.31)
+                        ) {
+                            AppLauncher.shared.openGoogleMeet()
+                        }
+
+                        AppLaunchButton(
+                            title:    "Google Drive",
+                            subtitle: "Files & storage",
+                            iconName: "folder.fill",
+                            tint:     Color(red: 0.25, green: 0.59, blue: 0.98)
+                        ) {
+                            AppLauncher.shared.openGoogleDrive()
+                        }
+
+                        AppLaunchButton(
+                            title:    "Google Calendar",
+                            subtitle: "Schedule & events",
+                            iconName: "calendar",
+                            tint:     Color(red: 0.26, green: 0.52, blue: 0.96)
+                        ) {
+                            AppLauncher.shared.openGoogleCalendar()
+                        }
+
+                        // Optional: explicit Google SDK sign-in for enhanced SSO
+                        if case .unauthenticated = googleAuthManager.authState {
+                            GoogleConnectBanner {
+                                Task { await googleAuthManager.signIn() }
+                            }
+                        }
+                    }
 
                     // ── SSO info ─────────────────────────────────────────
                     SSOInfoNote()
@@ -77,108 +127,13 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .destructive) {
-                        authManager.signOut()
+                        idpAuthManager.signOut()
+                        googleAuthManager.signOut()
                     } label: {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                             .foregroundStyle(.red)
                     }
                 }
-            }
-        }
-    }
-}
-
-// MARK: - Google Section
-
-private struct GoogleSection: View {
-
-    @EnvironmentObject private var googleAuthManager: GoogleAuthManager
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Google Workspace")
-
-            switch googleAuthManager.authState {
-
-            case .unauthenticated, .failed:
-                // Show connect button
-                VStack(spacing: 8) {
-                    if case .failed(let message) = googleAuthManager.authState {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .padding(.horizontal)
-                            .multilineTextAlignment(.center)
-                    }
-                    GoogleSignInButton {
-                        Task { await googleAuthManager.signIn() }
-                    }
-                }
-
-            case .authenticating:
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .padding()
-                    Spacer()
-                }
-
-            case .authenticated(let email, _):
-                // Identity card
-                IdentityCard(
-                    identifier: email,
-                    provider: "Google",
-                    iconName: "person.circle.fill",
-                    tint: Color(red: 0.26, green: 0.52, blue: 0.96)
-                )
-
-                // Google app launch buttons
-                AppLaunchButton(
-                    title: "Gmail",
-                    subtitle: "Google email",
-                    iconName: "envelope.fill",
-                    tint: Color(red: 0.84, green: 0.24, blue: 0.19)
-                ) {
-                    AppLauncher.shared.openGmail()
-                }
-
-                AppLaunchButton(
-                    title: "Google Meet",
-                    subtitle: "Video meetings",
-                    iconName: "video.fill",
-                    tint: Color(red: 0.0, green: 0.69, blue: 0.31)
-                ) {
-                    AppLauncher.shared.openGoogleMeet()
-                }
-
-                AppLaunchButton(
-                    title: "Google Drive",
-                    subtitle: "Files & storage",
-                    iconName: "folder.fill",
-                    tint: Color(red: 0.25, green: 0.59, blue: 0.98)
-                ) {
-                    AppLauncher.shared.openGoogleDrive()
-                }
-
-                AppLaunchButton(
-                    title: "Google Calendar",
-                    subtitle: "Schedule & events",
-                    iconName: "calendar",
-                    tint: Color(red: 0.26, green: 0.52, blue: 0.96)
-                ) {
-                    AppLauncher.shared.openGoogleCalendar()
-                }
-
-                // Google sign-out
-                Button(role: .destructive) {
-                    googleAuthManager.signOut()
-                } label: {
-                    Label("Disconnect Google Account", systemImage: "minus.circle")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                .padding(.horizontal)
             }
         }
     }
@@ -196,11 +151,10 @@ private struct SectionHeader: View {
 }
 
 private struct IdentityCard: View {
-
     let identifier: String
-    let provider: String
-    let iconName: String
-    let tint: Color
+    let provider:   String
+    let iconName:   String
+    let tint:       Color
 
     var body: some View {
         VStack(spacing: 10) {
@@ -221,34 +175,12 @@ private struct IdentityCard: View {
     }
 }
 
-private struct GoogleSignInButton: View {
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: "g.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color(red: 0.84, green: 0.24, blue: 0.19))
-                Text("Sign in with Google")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct AppLaunchButton: View {
-
-    let title: String
+    let title:    String
     let subtitle: String
     let iconName: String
-    let tint: Color
-    let action: () -> Void
+    let tint:     Color
+    let action:   () -> Void
 
     var body: some View {
         Button(action: action) {
@@ -281,6 +213,35 @@ private struct AppLaunchButton: View {
     }
 }
 
+/// Shown when Google SDK is not yet signed in — lets the user explicitly link
+/// their Google account for enhanced in-app Google SSO via the SDK.
+private struct GoogleConnectBanner: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "g.circle.fill")
+                    .foregroundStyle(Color(red: 0.84, green: 0.24, blue: 0.19))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connect Google Account")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Optional — for enhanced Google app SSO")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "plus.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct SSOInfoNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -289,10 +250,10 @@ private struct SSOInfoNote: View {
                 .foregroundStyle(.secondary)
 
             Text(
-                "Microsoft SSO: Full silent SSO requires Microsoft Authenticator installed and signed in. " +
-                "Google SSO: Google apps share authentication automatically — once you sign in to any " +
-                "Google app, others open without re-authentication. " +
-                "On MDM-managed devices, both Authenticator and Google apps are auto-deployed."
+                "You are signed in via your organisation's identity provider. " +
+                "Microsoft apps use your login hint and MSAL broker (if Microsoft Authenticator is installed) for silent SSO. " +
+                "Google apps share authentication through the established browser session. " +
+                "On MDM-managed devices, broker apps are deployed automatically."
             )
             .font(.caption)
             .foregroundStyle(.secondary)

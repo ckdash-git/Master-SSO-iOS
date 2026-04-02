@@ -71,11 +71,15 @@ final class AppLauncher {
 
     // MARK: - Gmail
 
-    /// Opens Gmail. All accounts already signed in on the device are available.
-    func openGmail() {
-        logger.info("Requesting launch of Gmail")
+    /// Opens Gmail. Passes authuser hint when available so Gmail selects the right account.
+    func openGmail(loginHint: String? = nil) {
+        logger.info("Requesting launch of Gmail (hint: \(loginHint ?? "none"))")
+        var urlString = "googlegmail://"
+        if let hint = loginHint {
+            urlString += "?authuser=\(hint.urlEncoded)"
+        }
         launch(
-            appSchemeURL:    "googlegmail://",
+            appSchemeURL:    urlString,
             appStoreLinkURL: "https://apps.apple.com/app/gmail-email-by-google/id422689480",
             appName:         "Gmail"
         )

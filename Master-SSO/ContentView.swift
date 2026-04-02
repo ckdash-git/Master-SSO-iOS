@@ -2,8 +2,8 @@
 //  ContentView.swift
 //  Master-SSO
 //
-//  Root view that routes to LoginView or DashboardView based on AuthManager state.
-//  State transitions are logged for diagnostics.
+//  Root view router. Drives navigation from IdPAuthManager state — the custom
+//  Casdoor IdP is the single sign-on entry point for all providers.
 //
 
 import SwiftUI
@@ -11,13 +11,13 @@ import os
 
 struct ContentView: View {
 
-    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var idpAuthManager: IdPAuthManager
 
     private let logger = AppLogger.general
 
     var body: some View {
         Group {
-            switch authManager.authState {
+            switch idpAuthManager.authState {
             case .unauthenticated, .failed:
                 LoginView()
                     .transition(.asymmetric(
@@ -34,8 +34,8 @@ struct ContentView: View {
                     ))
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
-        .onChange(of: authManager.authState) { oldState, newState in
+        .animation(.easeInOut(duration: 0.3), value: idpAuthManager.isAuthenticated)
+        .onChange(of: idpAuthManager.authState) { oldState, newState in
             logger.info("Auth state: \(String(describing: oldState)) → \(String(describing: newState))")
         }
     }
