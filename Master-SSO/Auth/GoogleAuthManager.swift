@@ -62,7 +62,10 @@ final class GoogleAuthManager: ObservableObject {
     }
 
     /// Presents the Google Sign-In flow interactively.
-    func signIn() async {
+    /// Pass `hint` (user's email from the IdP token) so Google pre-selects the account —
+    /// if the IdP already established a Google session in Safari, this completes with
+    /// just an account-picker tap and no password prompt.
+    func signIn(hint: String? = nil) async {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootVC = windowScene.windows.first?.rootViewController else {
             logger.error("Google sign-in: no root view controller found")
@@ -71,10 +74,13 @@ final class GoogleAuthManager: ObservableObject {
         }
 
         authState = .authenticating
-        logger.info("Google sign-in flow started")
+        logger.info("Google sign-in flow started (hint: \(hint ?? "none"))")
 
         do {
-            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            let result = try await GIDSignIn.sharedInstance.signIn(
+                withPresenting: rootVC,
+                hint: hint
+            )
             updateState(from: result.user)
             logger.info("Google sign-in succeeded: \(self.userEmail ?? "unknown")")
         } catch {

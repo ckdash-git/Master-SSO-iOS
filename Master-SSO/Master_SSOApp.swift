@@ -30,6 +30,17 @@ struct Master_SSOApp: App {
                     AppLauncher.shared.logInstallStatus()
                     await googleAuthManager.restoreSignIn()
                 }
+                // Auto-trigger Google Sign-In right after IdP auth so all Google apps
+                // get silent SSO. The IdP's Google federation session is already in
+                // Safari's cookie store, so this typically shows only an account picker.
+                .onChange(of: idpAuthManager.authState) { _, newState in
+                    if case .authenticated(let token) = newState,
+                       !googleAuthManager.isAuthenticated {
+                        Task {
+                            await googleAuthManager.signIn(hint: token.userEmail)
+                        }
+                    }
+                }
                 .onOpenURL { url in
                     // 1. Custom IdP (Casdoor) callback — master-sso://oauth/callback
                     if url.scheme == "master-sso" { return }   // handled by ASWebAuthenticationSession

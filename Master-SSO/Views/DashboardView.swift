@@ -111,7 +111,7 @@ struct DashboardView: View {
                         // Optional: explicit Google SDK sign-in for enhanced SSO
                         if case .unauthenticated = googleAuthManager.authState {
                             GoogleConnectBanner {
-                                Task { await googleAuthManager.signIn() }
+                                Task { await googleAuthManager.signIn(hint: token?.userEmail) }
                             }
                         }
                     }
